@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111111">
+  <meta name="description" content="Rufián — skate underground. Explora la tabla mediante una experiencia de realidad aumentada.">
+  <title>RUFIÁN — Skate Underground</title>
+  <link rel="stylesheet" href="css/app.css">
+  <!-- MindAR 1.2.5 usa módulos ES; el compilador se importa dinámicamente desde el módulo correcto. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./js/three.compat.js",
+      "three/addons/": "./js/addons/",
+      "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="ar-container" aria-label="Vista de realidad aumentada"></div>
+
+  <header class="topbar">
+    <a class="wordmark" href="#inicio" aria-label="Rufián Magazine inicio">
+      <svg class="brand-symbol" viewBox="0 0 72 76" role="img" aria-label="Símbolo Rufián" focusable="false">
+        <path d="M5 22 22 11 24 2 37 20 47 5 49 29 66 40 57 59 40 72 22 66 10 53 2 48 13 37Z" fill="currentColor"/>
+        <path d="M20 39c4-4 10-4 14 0-2 7-10 8-14 0Zm20-2c4-4 10-3 13 1-2 7-10 7-13-1Z" fill="#111111"/>
+      </svg>
+      <span class="wordmark-stack"><span class="wordmark-main">RUFIÁN</span><span class="wordmark-sub">MAGAZINE</span></span>
+      <span class="wordmark-registered">®</span>
+    </a>
+    <div class="topbar-right"><span class="edition">SKATE / CULTURE / 001</span><span class="live-dot" aria-hidden="true"></span></div>
+  </header>
+
+  <main id="inicio" class="landing">
+    <div class="hero-copy">
+      <p class="eyebrow"><span class="eyebrow-line"></span> NO RULES. JUST RIDE.</p>
+      <h1>MADE FOR<br><span>THE OUTSIDERS.</span></h1>
+      <p class="intro">Una tabla. Una actitud. Tu propio camino.<br>Escanea el marcador y descubre Rufián en realidad aumentada.</p>
+      <button id="start-button" class="primary-button" type="button"><span class="button-icon">↗</span><span id="start-label">ACTIVAR EXPERIENCIA AR</span></button>
+      <div id="progress-container" class="progress-container" aria-live="polite">
+        <div class="progress-track"><div id="progress-bar-fill"></div></div>
+        <span id="progress-label">Preparando experiencia… 0%</span>
+      </div>
+      <p class="camera-note">PARA EMPEZAR · PERMITE EL ACCESO A LA CÁMARA</p>
+    </div>
+
+    <div class="deck-stage" aria-label="Ilustración gráfica de una tabla de skate Rufián">
+      <div class="stage-index">RFN—001 / DECK STUDY</div>
+      <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+      <div class="deck-shadow"></div>
+      <div class="skate-deck" aria-hidden="true">
+        <div class="deck-grip"></div><div class="deck-stripe"></div>
+        <div class="deck-mark">R<br>F<br>N</div><div class="deck-number">001</div>
+        <div class="deck-scribble">RUFIÁN<br>SKATE CO.</div>
+      </div>
+      <div class="stage-caption"><span>FIG. 01</span><span>STREET EQUIPMENT / BOGOTÁ</span></div>
+      <div class="crosshair crosshair-a">+</div><div class="crosshair crosshair-b">+</div>
+    </div>
+
+    <div class="bottom-strip"><span>BUILT DIFFERENT.</span><span>INDEPENDENT SKATE CULTURE</span><span>BOGOTÁ, COLOMBIA ↗</span></div>
+  </main>
+
+  <section id="ar-hud" class="ar-hud" aria-label="Controles de realidad aumentada" hidden>
+    <div class="scan-message"><span class="scan-pulse"></span><span id="tracking-status">Apunta al marcador para detectar la tabla</span></div>
+    <button id="exit-ar" class="exit-button" type="button" aria-label="Volver al inicio">×</button>
+  </section>
+
+  <nav class="info-nav" aria-label="Información de Rufián">
+    <button class="info-button" data-dialog="concept" type="button"><span>01</span> EL CONCEPTO <b>↗</b></button>
+    <button class="info-button" data-dialog="deck" type="button"><span>02</span> LA TABLA <b>↗</b></button>
+    <button class="info-button" data-dialog="culture" type="button"><span>03</span> LA CULTURA <b>↗</b></button>
+  </nav>
+
+  <div id="dialog-backdrop" class="dialog-backdrop" hidden>
+    <section class="info-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+      <button id="dialog-close" class="dialog-close" type="button" aria-label="Cerrar diálogo">×</button>
+      <p id="dialog-kicker" class="eyebrow">RUFIÁN / MANIFIESTO</p>
+      <h2 id="dialog-title">HECHO PARA<br>LOS OUTSIDERS.</h2>
+      <p id="dialog-body" class="dialog-body"></p>
+      <div class="dialog-footer"><span id="dialog-count">01 / 03</span><span>RUFIÁN SKATE CO. ®</span></div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module">
+    import * as THREE from './js/three.module.js';
+    import { APP } from './js/app.js';
+    import { MindARController } from './js/mindar/mindar_controller.js';
+
+    window.THREE = THREE;
+    const $ = (id) => document.getElementById(id);
+    const startButton = $('start-button');
+    const startLabel = $('start-label');
+    const progressContainer = $('progress-container');
+    const progressFill = $('progress-bar-fill');
+    const progressLabel = $('progress-label');
+    const landing = document.querySelector('.landing');
+    const arHud = $('ar-hud');
+    const toast = $('toast');
+    let player = null, mindarController = null, loaded = false, loadPromise = null;
+    let toastTimer = null, audioContext = null, arActive = false;
+    let compiledTargetUrl = null;
+    let compileTargetPromise = null;
+
+    const dialogContent = {
+      concept: { kicker: 'RUFIÁN / MANIFIESTO', title: 'HECHO PARA<br>LOS OUTSIDERS.', body: 'Rufián nace de la calle, la gráfica independiente y la necesidad de expresarse sin pedir permiso. No buscamos encajar: buscamos dejar huella. Una marca para quienes convierten cada superficie en una posibilidad.', count: '01 / 03' },
+      deck: { kicker: 'RUFIÁN / PRODUCTO 001', title: 'TU TABLA.<br>TUS REGLAS.', body: 'La tabla es más que una herramienta: es una superficie para llevar tu identidad. Gráfica contundente, lenguaje visual experimental y una actitud que mezcla el skate clásico con la cultura underground. Esta experiencia AR amplía la historia del producto.', count: '02 / 03' },
+      culture: { kicker: 'RUFIÁN / COMUNIDAD', title: 'LA CALLE<br>ES DE TODOS.', body: 'Skate, música, ilustración y cultura urbana se encuentran en un mismo lugar. Rufián celebra a quienes aprenden a su ritmo, prueban cosas nuevas y construyen comunidad. No importa cómo empiezas; importa que salgas a rodar.', count: '03 / 03' }
+    };
+
+    function sound(type = 'click') {
+      try {
+        audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') audioContext.resume();
+        const osc = audioContext.createOscillator(), gain = audioContext.createGain();
+        const now = audioContext.currentTime;
+        osc.type = type === 'open' ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(type === 'open' ? 520 : 330, now);
+        osc.frequency.exponentialRampToValueAtTime(type === 'open' ? 760 : 180, now + 0.11);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.08, now + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+        osc.connect(gain); gain.connect(audioContext.destination);
+        osc.start(now); osc.stop(now + 0.17);
+      } catch (e) { console.warn('Audio no disponible en este navegador.', e); }
+    }
+    function showToast(message) {
+      toast.textContent = message; toast.classList.add('visible');
+      clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('visible'), 4200);
+    }
+    function setProgress(percent, message) {
+      const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+      progressFill.style.width = `${safePercent}%`;
+      progressLabel.textContent = `${message} ${safePercent}%`;
+    }
+
+    async function loadEverything() {
+      if (loadPromise) return loadPromise;
+      loadPromise = (async () => {
+        setProgress(4, 'Cargando escena…');
+        const response = await fetch('./app.json');
+        if (!response.ok) throw new Error('No se pudo cargar app.json. Verifica que el repositorio esté completo.');
+        const sceneJSON = await response.json();
+        setProgress(12, 'Preparando escena…');
+        player = new APP.Player({ alpha: true });
+        await player.load(sceneJSON);
+        player.setSize(window.innerWidth, window.innerHeight);
+        player.play();
+        document.body.appendChild(player.dom);
+        player.dom.classList.add('hidden-scene-canvas');
+        window.addEventListener('resize', () => player?.setSize(window.innerWidth, window.innerHeight));
+        window.player = player;
+        setProgress(22, 'Escena preparada…');
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        loaded = true;
+      })().catch(error => { loaded = false; loadPromise = null; throw error; });
+      return loadPromise;
+    }
+
+    // MindAR 1.2.x se distribuye como ES module: cargarlo con una etiqueta script clásica
+    // no crea window.MINDAR.IMAGE. Importamos Compiler como export del módulo y probamos
+    // dos CDNs para evitar depender de un único punto de entrega.
+    async function loadMindARCompiler() {
+      const urls = [
+        'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js',
+        'https://unpkg.com/mind-ar@1.2.5/dist/mindar-image.prod.js'
+      ];
+      let lastError = null;
+      for (const url of urls) {
+        try {
+          const module = await import(url);
+          if (typeof module.Compiler === 'function') return module.Compiler;
+          throw new Error('El módulo descargado no exporta Compiler.');
+        } catch (error) {
+          lastError = error;
+          console.warn('No se pudo cargar MindAR Compiler desde', url, error);
+        }
+      }
+      const detail = lastError?.message ? ` Detalle: ${lastError.message}` : '';
+      throw new Error('No se pudo descargar el compilador de MindAR. Revisa tu conexión, bloqueadores de contenido o la disponibilidad de los CDN e inténtalo de nuevo.' + detail);
+    }
+
+    // Genera el archivo .mind en memoria a partir de la imagen real de Rufián.
+    // Esto evita reutilizar el targets.mind antiguo, que pertenecía a otra marca.
+    async function getCompiledTargetUrl() {
+      if (compiledTargetUrl) return compiledTargetUrl;
+      if (compileTargetPromise) return compileTargetPromise;
+
+      compileTargetPromise = (async () => {
+        const Compiler = await loadMindARCompiler();
+
+        setProgress(27, 'Cargando imagen de seguimiento…');
+        const image = new Image();
+        image.decoding = 'async';
+        image.src = './assets/marker/target.jpg';
+        if (typeof image.decode === 'function') {
+          await image.decode();
+        } else {
+          await new Promise((resolve, reject) => {
+            image.onload = resolve;
+            image.onerror = () => reject(new Error('No se pudo cargar assets/marker/target.jpg.'));
+          });
+        }
+
+        setProgress(32, 'Analizando imagen…');
+        const compiler = new Compiler();
+        await compiler.compileImageTargets([image], (percent) => {
+          const p = Math.max(0, Math.min(100, Number(percent) || 0));
+          setProgress(32 + p * 0.43, 'Analizando imagen…');
+        });
+
+        const buffer = await compiler.exportData();
+        if (!buffer || !buffer.byteLength) throw new Error('MindAR no pudo generar el marcador. Prueba con una imagen nítida y bien iluminada.');
+        compiledTargetUrl = URL.createObjectURL(new Blob([buffer], { type: 'application/octet-stream' }));
+        setProgress(76, 'Marcador listo…');
+        return compiledTargetUrl;
+      })().catch(error => {
+        compileTargetPromise = null;
+        throw error;
+      }).finally(() => {
+        compileTargetPromise = null;
+      });
+
+      return compileTargetPromise;
+    }
+
+    startButton.addEventListener('click', async () => {
+      sound('open'); startButton.disabled = true; startLabel.textContent = 'PREPARANDO…';
+      progressContainer.classList.add('visible');
+      try {
+        await loadEverything();
+        const targetUrl = await getCompiledTargetUrl();
+        setProgress(82, 'Solicitando cámara…');
+        mindarController = new MindARController($('ar-container'), player, new URLSearchParams(location.search).get('debug') === '1', targetUrl);
+        mindarController.addListener('found', () => { $('tracking-status').textContent = 'Marcador detectado · explora la experiencia'; showToast('¡Marcador detectado!'); });
+        mindarController.addListener('lost', () => { $('tracking-status').textContent = 'Marcador perdido · vuelve a apuntar'; });
+        await mindarController.start();
+        arActive = true;
+        setProgress(100, 'Experiencia activa');
+        landing.classList.add('ar-mode');
+        arHud.hidden = false;
+        document.body.classList.add('ar-running');
+        startButton.disabled = false; startLabel.textContent = 'EXPERIENCIA ACTIVA';
+        showToast('Cámara activa. Apunta a la imagen de Rufián para detectar el marcador.');
+      } catch (error) {
+        console.error(error);
+        startButton.disabled = false; startLabel.textContent = 'REINTENTAR EXPERIENCIA AR';
+        const msg = error?.message || 'No fue posible iniciar la experiencia.';
+        progressLabel.textContent = msg;
+        showToast(/permission|permiso|notallowederror|denied/i.test(msg) ? 'Permite el acceso a la cámara en tu navegador y vuelve a intentarlo.' : msg);
+      }
+    });
+
+    document.querySelectorAll('.info-button').forEach(button => button.addEventListener('click', () => {
+      const item = dialogContent[button.dataset.dialog]; if (!item) return;
+      sound('open'); $('dialog-kicker').textContent = item.kicker;
+      $('dialog-title').innerHTML = item.title; $('dialog-body').textContent = item.body;
+      $('dialog-count').textContent = item.count;
+      $('dialog-backdrop').hidden = false; $('dialog-close').focus();
+    }));
+    function closeDialog() { $('dialog-backdrop').hidden = true; sound(); }
+    $('dialog-close').addEventListener('click', closeDialog);
+    $('dialog-backdrop').addEventListener('click', event => { if (event.target === $('dialog-backdrop')) closeDialog(); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('dialog-backdrop').hidden) closeDialog(); });
+    $('exit-ar').addEventListener('click', () => {
+      sound(); mindarController?.stop(); mindarController = null; arActive = false;
+      $('ar-container').replaceChildren(); arHud.hidden = true; landing.classList.remove('ar-mode');
+      document.body.classList.remove('ar-running'); startLabel.textContent = 'ACTIVAR EXPERIENCIA AR';
+      progressContainer.classList.remove('visible'); showToast('Experiencia pausada. Puedes volver a iniciarla.');
+    });
+    // El navegador exige HTTPS (Vercel lo ofrece) y una acción del usuario para activar la cámara y el sonido.
+    window.addEventListener('beforeunload', () => mindarController?.stop());
+  </script>
+</body>
+</html>
