@@ -297,8 +297,8 @@ export function createOccluderMaterial() {
 }
 export function createHeadOccluder() {
   const m = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 24), createOccluderMaterial());
-  m.scale.set(6.4, 8.2, 8.0);
-  m.position.set(0, 1.6, -3.6);
+  m.scale.set(6.2, 7.0, 7.4);
+  m.position.set(0, -0.8, -4.2);
   m.renderOrder = -1;
   m.name = 'OclusorCabeza';
   return m;
@@ -356,4 +356,65 @@ export async function applyEditedHelmet(helmet, url = 'editor/casco-rufian.json'
     console.warn('No se pudo cargar el casco del editor; se usa el modelo por código.', e);
     return false;
   }
+}
+
+// ------------------------------------------------------------------ unión careta ↔ casco
+// Franja que se recalcula cada cuadro: va desde el borde superior de la malla facial
+// (sien → frente → sien) hasta la superficie del cráneo, para que careta y casco sean una sola pieza.
+const OVAL_TOP = [172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109, 10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397];
+export function createFaceBridge(material) {
+  const n = OVAL_TOP.length;
+  const rows = 4; // filas intermedias para que la curva sea suave
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * (rows + 1) * 3), 3));
+  const idx = [];
+  for (let i = 0; i < n - 1; i++) {
+    for (let r = 0; r < rows; r++) {
+      const a = r * n + i, b = a + 1, c = a + n, d = c + 1;
+      idx.push(a, c, b, b, c, d);
+    }
+  }
+  geo.setIndex(idx);
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.name = 'UnionCaretaCasco';
+  mesh.frustumCulled = false;
+  const mat = material.clone(); mat.side = THREE.DoubleSide; mesh.material = mat;
+  const p = new THREE.Vector3(), nrm = new THREE.Vector3(), out = new THREE.Vector3(), dir = new THREE.Vector3(), q = new THREE.Vector3();
+  const center = new THREE.Vector3(DOME.cx, DOME.cy, DOME.cz);
+  function update(posAttr, normAttr, inflate = 0.3) {
+    const pos = geo.attributes.position;
+    for (let i = 0; i < n; i++) {
+      const k = OVAL_TOP[i];
+      p.fromBufferAttribute(posAttr, k);
+      if (normAttr) { nrm.fromBufferAttribute(normAttr, k); p.addScaledVector(nrm, inflate); }
+      // punto del cráneo en la misma dirección desde su centro (elipsoide), un poco hacia adentro
+      dir.copy(p).sub(center);
+      const rz = dir.z >= 0 ? DOME.rzFront : DOME.rzBack;
+      const s = 1 / Math.sqrt((dir.x / DOME.rx) ** 2 + (dir.y / DOME.ry) ** 2 + (dir.z / rz) ** 2);
+      out.copy(center).addScaledVector(dir, s * 0.985);
+      // si el cráneo queda por fuera de la cara (sienes), lo empujamos un poco hacia atrás
+      for (let r = 0; r <= rows; r++) {
+        const t = r / rows;
+        q.copy(p).lerp(out, t);
+        // abombado suave para que no sea una pared recta
+        q.addScaledVector(nrm, Math.sin(t * Math.PI) * 0.15);
+        pos.setXYZ(r * n + i, q.x, q.y, q.z);
+      }
+    }
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
+    // primera fila con las mismas normales de la careta: sin línea de luz en la unión
+    if (normAttr) {
+      const nb = geo.attributes.normal, tmp = new THREE.Vector3(), own = new THREE.Vector3();
+      for (let i = 0; i < n; i++) {
+        tmp.fromBufferAttribute(normAttr, OVAL_TOP[i]);
+        for (let r = 0; r <= 1; r++) {
+          own.fromBufferAttribute(nb, r * n + i).lerp(tmp, r === 0 ? 1 : 0.5).normalize();
+          nb.setXYZ(r * n + i, own.x, own.y, own.z);
+        }
+      }
+      nb.needsUpdate = true;
+    }
+  }
+  return { mesh, update };
 }

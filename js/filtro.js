@@ -3,7 +3,7 @@
 // Gesto 2: con la máscara encendida, abrir la boca → disparo de energía.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { createHelmet, createFaceMaskMaterial, createOccluderMaterial, createHeadOccluder, createLensMaterial, eyeCentersFrom, applyEditedHelmet, GLOW_COLOR } from './models/helmet.js';
+import { createHelmet, createFaceMaskMaterial, createOccluderMaterial, createHeadOccluder, createLensMaterial, eyeCentersFrom, applyEditedHelmet, createFaceBridge, GLOW_COLOR } from './models/helmet.js';
 import { SFX } from './sfx.js';
 import { $, toast, setProgress } from './ui.js';
 
@@ -11,7 +11,7 @@ const params = new URLSearchParams(location.search);
 const SIM = params.get('sim'); // modo de prueba sin gestos reales
 
 let mindar = null, started = false;
-let helmet = null, maskFace = null, occFace = null, lensFace = null;
+let helmet = null, maskFace = null, occFace = null, lensFace = null, bridge = null;
 const timer = new THREE.Timer();
 const eyeTmp = [new THREE.Vector3(), new THREE.Vector3()];
 
@@ -271,6 +271,7 @@ function frame() {
   if (has) {
     maskFace.geometry.computeVertexNormals();
     lensFace.geometry.computeVertexNormals();
+    bridge.update(maskFace.geometry.attributes.position, maskFace.geometry.attributes.normal);
     const e = mindar.getLatestEstimate();
     if (e?.metricLandmarks) helmet.setEyes(...eyeCentersFrom((i) => e.metricLandmarks[i], eyeTmp));
   }
@@ -318,6 +319,8 @@ async function start() {
     maskFace.material = createFaceMaskMaterial(helmet.shellMaterial);
     maskFace.add(helmet.group);
     maskFace.add(createHeadOccluder());
+    bridge = createFaceBridge(helmet.shellMaterial);
+    maskFace.add(bridge.mesh);
     scene.add(maskFace);
     // 3) lentes: otra copia de la malla, recortada con la forma de ojo de la marca
     lensFace = mindar.addFaceMesh();
