@@ -314,3 +314,46 @@ export function eyeCentersFrom(getPoint, out = [new THREE.Vector3(), new THREE.V
   });
   return out;
 }
+
+// ------------------------------------------------------------------ casco editado en el editor de Three.js
+// Si existe editor/casco-rufian.json (proyecto o escena exportada desde threejs.org/editor),
+// se usan su cráneo y sus púas en lugar del modelo generado por código.
+// La careta y las lentes siguen saliendo de la malla facial (se deforman con cada cara).
+export async function applyEditedHelmet(helmet, url = 'editor/casco-rufian.json') {
+  try {
+    const res = await fetch(url, { cache: 'no-cache' });
+    if (!res.ok) return false;
+    const json = await res.json();
+    const loader = new THREE.ObjectLoader();
+    const root = await loader.parseAsync(json.scene || json.object ? (json.scene || json) : json);
+    const casco = root.getObjectByName('CascoRufian') || root;
+    casco.updateMatrixWorld(true);
+    const pieces = [];
+    casco.children.forEach((c) => {
+      if (c.name === 'Brillo' || c.isLight || c.isCamera) return;
+      pieces.push(c);
+    });
+    if (!pieces.length) return false;
+    // quitar el cráneo y las púas generados por código
+    ['Craneo', 'Reborde', 'Puas'].forEach((n) => { const o = helmet.group.getObjectByName(n); if (o) o.removeFromParent(); });
+    const wrap = new THREE.Group();
+    wrap.name = 'CascoEditado';
+    if (casco !== root) wrap.matrix.copy(casco.matrix); // respeta si moviste/escalaste el grupo completo
+    wrap.matrixAutoUpdate = false;
+    pieces.forEach((p) => wrap.add(p));
+    // material: el del editor (si cambiaste color/rugosidad) se usa también en la careta
+    let edited = null;
+    wrap.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; edited ||= o.material; } });
+    if (edited && helmet.shellMaterial) {
+      ['color', 'emissive'].forEach((k) => edited[k] && helmet.shellMaterial[k]?.copy(edited[k]));
+      ['roughness', 'metalness', 'envMapIntensity'].forEach((k) => { if (typeof edited[k] === 'number') helmet.shellMaterial[k] = edited[k]; });
+      wrap.traverse((o) => { if (o.isMesh && o.material?.isMeshStandardMaterial) o.material.envMapIntensity = helmet.shellMaterial.envMapIntensity; });
+    }
+    helmet.group.add(wrap);
+    console.info('Rufián: casco cargado desde', url);
+    return true;
+  } catch (e) {
+    console.warn('No se pudo cargar el casco del editor; se usa el modelo por código.', e);
+    return false;
+  }
+}

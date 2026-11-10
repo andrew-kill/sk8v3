@@ -3,7 +3,7 @@
 // Gesto 2: con la máscara encendida, abrir la boca → disparo de energía.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { createHelmet, createFaceMaskMaterial, createOccluderMaterial, createHeadOccluder, createLensMaterial, eyeCentersFrom, GLOW_COLOR } from './models/helmet.js';
+import { createHelmet, createFaceMaskMaterial, createOccluderMaterial, createHeadOccluder, createLensMaterial, eyeCentersFrom, applyEditedHelmet, GLOW_COLOR } from './models/helmet.js';
 import { SFX } from './sfx.js';
 import { $, toast, setProgress } from './ui.js';
 
@@ -306,6 +306,7 @@ async function start() {
     const lensMap = await new THREE.TextureLoader().loadAsync('assets/textures/lente-malla.jpg');
     const lensMaterial = createLensMaterial(lensMap);
     helmet = createHelmet({ lensMaterial });
+    await applyEditedHelmet(helmet); // usa tu versión del editor de Three.js si existe
 
     // 1) oclusor con la forma exacta de la cara
     occFace = mindar.addFaceMesh();

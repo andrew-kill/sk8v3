@@ -17,7 +17,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { createHelmet, createFaceMaskMaterial, createHeadOccluder, createLensMaterial, eyeCentersFrom } from '../js/models/helmet.js';
+import { createHelmet, createFaceMaskMaterial, createHeadOccluder, createLensMaterial, eyeCentersFrom, applyEditedHelmet } from '../js/models/helmet.js';
 import { createDeck, loadDeckTextures } from '../js/models/deck.js';
 
 const q = new URLSearchParams(location.search);
@@ -46,6 +46,7 @@ if (view === 'helmet') {
   const lensMap = await new THREE.TextureLoader().loadAsync('../assets/textures/lente-malla.jpg');
   const lensMaterial = createLensMaterial(lensMap);
   helmet = createHelmet({ lensMaterial });
+  if (!q.get('codigo')) await applyEditedHelmet(helmet, '../editor/casco-rufian.json');
   const mask = new THREE.Mesh(geo, createFaceMaskMaterial(helmet.shellMaterial));
   mask.name = 'Mascara';
   const lenses = new THREE.Mesh(geo, lensMaterial); lenses.name = 'Lentes'; lenses.renderOrder = 3;
