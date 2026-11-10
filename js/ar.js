@@ -65,7 +65,9 @@ function hotspotTexture(num, label) {
 function videoLabelTexture(text) {
   return canvasTexture(1024, 128, (x, w, h) => {
     x.fillStyle = '#000'; x.fillRect(0, 0, w, h);
-    x.fillStyle = '#fff'; x.font = DISPLAY(70); x.textBaseline = 'middle';
+    x.fillStyle = '#fff'; x.textBaseline = 'middle';
+    let size = 70; x.font = DISPLAY(size);
+    while (x.measureText(text).width > w - 256 - 56 && size > 30) { size -= 2; x.font = DISPLAY(size); }
     x.fillText(text, 28, h / 2 + 4);
     // tablero a la derecha
     for (let i = 0; i < 8; i++) for (let j = 0; j < 2; j++) {
@@ -132,7 +134,7 @@ async function buildContent(renderer) {
   const frame = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.68), new THREE.MeshBasicMaterial({ color: 0x000000 }));
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.52), new THREE.MeshBasicMaterial({ map: vTex, toneMapped: false }));
   screen.position.set(0, 0.06, 0.002);
-  const labelMat = new THREE.MeshBasicMaterial({ map: videoLabelTexture('▶ VIDEO · TOCA SONIDO'), toneMapped: false });
+  const labelMat = new THREE.MeshBasicMaterial({ map: videoLabelTexture('▶ TOCA PARA SONIDO'), toneMapped: false });
   const label = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.065), labelMat);
   label.position.set(0, -0.265, 0.002);
   videoPanel.add(frame, screen, label);
@@ -173,6 +175,20 @@ async function buildContent(renderer) {
 }
 
 // ------------------------------------------------------------- interacción
+const _v = new THREE.Vector3();
+function screenPos(obj, rect) {
+  obj.getWorldPosition(_v).project(mindar.camera);
+  return { x: rect.left + (_v.x + 1) / 2 * rect.width, y: rect.top + (1 - _v.y) / 2 * rect.height, behind: _v.z > 1 };
+}
+let downAt = null;
+function onDown(ev) { downAt = { x: ev.clientX, y: ev.clientY, t: performance.now() }; }
+function onUp(ev) {
+  if (!downAt) return;
+  const moved = Math.hypot(ev.clientX - downAt.x, ev.clientY - downAt.y);
+  downAt = null;
+  if (moved > 25) return;
+  onPointer(ev);
+}
 function onPointer(ev) {
   if (!mindar || !state.visible || !$('dialog').hidden) return;
   const canvas = mindar.renderer.domElement;
@@ -181,9 +197,19 @@ function onPointer(ev) {
   const ray = new THREE.Raycaster();
   ray.setFromCamera(p, mindar.camera);
   const hits = ray.intersectObjects(clickables, true);
-  if (!hits.length) return;
-  let o = hits[0].object;
+  let o = hits.length ? hits[0].object : null;
   while (o && !o.userData.action) o = o.parent;
+  if (!o) {
+    // tolerancia para dedos: el botón 3D más cercano en pantalla (radio ~45 px)
+    let best = null, bestD = 45;
+    for (const h of hotspots) {
+      const sp = screenPos(h, rect);
+      if (sp.behind) continue;
+      const d = Math.hypot(sp.x - ev.clientX, sp.y - (ev.clientY + 0));
+      if (d < bestD) { bestD = d; best = h; }
+    }
+    o = best;
+  }
   if (!o) return;
   const { action, key } = o.userData;
   if (action === 'dialog') { bump(o); openDialog(key); }
@@ -344,7 +370,9 @@ async function start() {
     setProgress(100, 'Listo');
     $('intro').hidden = true; $('intro').style.display = 'none';
     $('status').hidden = false; $('dock').hidden = false;
-    renderer.domElement.addEventListener('pointerdown', onPointer);
+    // MindAR pone una capa CSS3D encima del canvas: escuchamos en el contenedor completo
+    $('ar').addEventListener('pointerdown', onDown);
+    $('ar').addEventListener('pointerup', onUp);
     toast('Apunta la cámara al afiche Rufián', 3200);
     window.__ar = { mindar, state, deck, content };
   } catch (err) {
