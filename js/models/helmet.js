@@ -8,18 +8,17 @@ export const GLOW_COLOR = new THREE.Color(0x2f7bff);
 
 // ------------------------------------------------------------------ materiales
 export function createShellMaterial() {
-  return new THREE.MeshPhysicalMaterial({
-    color: 0x0a0a0a,
-    roughness: 0.22,
+  // negro mate tipo goma/plástico satinado (sin brillo de "bomba")
+  return new THREE.MeshStandardMaterial({
+    color: 0x161616,
+    roughness: 0.68,
     metalness: 0.0,
-    clearcoat: 1,
-    clearcoatRoughness: 0.12,
-    envMapIntensity: 1.1,
+    envMapIntensity: 0.55,
   });
 }
 
 // ------------------------------------------------------------------ cráneo
-const DOME = { cx: 0, cy: 3.6, cz: -3.6, rx: 9.7, ry: 10.4, rzFront: 9.8, rzBack: 11.0 };
+const DOME = { cx: 0, cy: 3.4, cz: -3.6, rx: 9.6, ry: 10.6, rzFront: 8.5, rzBack: 11.0 };
 
 function domePoint(theta, az, out = new THREE.Vector3(), inflate = 0) {
   const rz = Math.cos(az) >= 0 ? DOME.rzFront : DOME.rzBack;
@@ -34,7 +33,7 @@ function domePoint(theta, az, out = new THREE.Vector3(), inflate = 0) {
 // altura del borde inferior según el ángulo (0 = frente, PI = nuca)
 function cutHeight(az) {
   const c = (1 - Math.cos(az)) / 2;
-  return 6.4 + (-7.5 - 6.4) * Math.pow(c, 0.78);
+  return 3.5 + (-7.5 - 3.5) * Math.pow(c, 0.9);
 }
 function thetaMax(az) {
   const v = (cutHeight(az) - DOME.cy) / DOME.ry;
@@ -83,92 +82,98 @@ function buildRimGeometry() {
 }
 
 // ------------------------------------------------------------------ púas
-// Cono curvado: base en el cráneo, se inclina hacia atrás como en el ícono.
-function buildSpikeGeometry(length, radius, bend, flat = 0.8) {
-  const g = new THREE.ConeGeometry(radius, length, 24, 16, true);
-  g.translate(0, length / 2, 0);
+// Cuerno con perfil cóncavo (base ancha que se funde con el cráneo, punta fina) y curva hacia atrás.
+function buildSpikeGeometry(length, radius, bend, flat = 0.9) {
+  const pts = [];
+  const n = 22;
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    // base acampanada + cuerpo que se afina con curva cóncava
+    const r = radius * 1.12 * (Math.pow(1 - t, 1.25) + 0.2 * Math.pow(1 - t, 6));
+    pts.push(new THREE.Vector2(Math.max(r, 0.0001), t * length));
+  }
+  const g = new THREE.LatheGeometry(pts, 28);
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) {
     const y = p.getY(i);
     const t = y / length;
     p.setX(i, p.getX(i) * flat);
-    p.setZ(i, p.getZ(i) - bend * length * t * t); // curva hacia -Z local (atrás)
+    p.setZ(i, p.getZ(i) - bend * length * t * t);
   }
   g.computeVertexNormals();
   return g;
 }
 
-// theta (desde la cima), az (0 = frente), largo, radio base, curvatura, inclinación extra hacia atrás
+// theta (desde la cima), az (0 = frente), largo, radio base, curvatura, inclinación hacia atrás
+// Corona simétrica: una púa central alta, dos laterales altas, dos en las sienes y un abanico en la nuca.
 const SPIKES = [
-  { th: 0.20, az: 0.0, len: 12.5, r: 3.3, bend: 0.32, tilt: 0.30 },
-  { th: 0.58, az: 0.85, len: 10.5, r: 3.0, bend: 0.30, tilt: 0.30 },
-  { th: 0.58, az: -0.85, len: 10.5, r: 3.0, bend: 0.30, tilt: 0.30 },
-  { th: 0.98, az: 1.6, len: 8.5, r: 2.6, bend: 0.28, tilt: 0.55 },
-  { th: 0.98, az: -1.6, len: 8.5, r: 2.6, bend: 0.28, tilt: 0.55 },
-  { th: 0.80, az: Math.PI, len: 10.5, r: 3.1, bend: 0.20, tilt: 0.35 },
-  { th: 1.15, az: 2.45, len: 8.0, r: 2.6, bend: 0.22, tilt: 0.45 },
-  { th: 1.15, az: -2.45, len: 8.0, r: 2.6, bend: 0.22, tilt: 0.45 },
-  { th: 1.55, az: Math.PI, len: 7.0, r: 2.4, bend: 0.15, tilt: 0.40 },
+  { th: 0.22, az: 0.0, len: 13.0, r: 3.9, bend: 0.22, tilt: 0.12 },
+  { th: 0.62, az: 0.62, len: 10.0, r: 3.4, bend: 0.22, tilt: 0.18 },
+  { th: 0.62, az: -0.62, len: 10.0, r: 3.4, bend: 0.22, tilt: 0.18 },
+  { th: 1.05, az: 1.25, len: 7.5, r: 2.9, bend: 0.25, tilt: 0.35 },
+  { th: 1.05, az: -1.25, len: 7.5, r: 2.9, bend: 0.25, tilt: 0.35 },
+  { th: 0.70, az: Math.PI, len: 11.0, r: 3.6, bend: 0.12, tilt: 0.40 },
+  { th: 0.95, az: 2.25, len: 9.0, r: 3.2, bend: 0.15, tilt: 0.45 },
+  { th: 0.95, az: -2.25, len: 9.0, r: 3.2, bend: 0.15, tilt: 0.45 },
+  { th: 1.35, az: Math.PI, len: 8.0, r: 3.0, bend: 0.10, tilt: 0.45 },
 ];
 
 function placeSpike(mesh, s) {
-  const base = domePoint(s.th, s.az, new THREE.Vector3(), -1.2);
-  // normal aproximada de la superficie
+  const base = domePoint(s.th, s.az, new THREE.Vector3(), -1.6);
   const n = domePoint(s.th, s.az, new THREE.Vector3(), 1).sub(domePoint(s.th, s.az, new THREE.Vector3(), 0)).normalize();
   const back = new THREE.Vector3(0, 0, -1);
   const dir = n.clone().lerp(back, s.tilt).normalize();
-  // ejes locales: Y = dirección de la púa, Z local = "hacia adelante" (la curva va hacia -Z local = atrás)
   let zAxis = new THREE.Vector3(0, 0, 1).sub(dir.clone().multiplyScalar(dir.z));
   if (zAxis.lengthSq() < 1e-4) zAxis.set(0, 1, 0);
   zAxis.normalize();
   const xAxis = new THREE.Vector3().crossVectors(dir, zAxis).normalize();
   zAxis = new THREE.Vector3().crossVectors(xAxis, dir).normalize();
-  const m = new THREE.Matrix4().makeBasis(xAxis, dir, zAxis);
-  mesh.quaternion.setFromRotationMatrix(m);
+  mesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAxis, dir, zAxis));
   mesh.position.copy(base);
 }
 
 // ------------------------------------------------------------------ lentes
-// Forma "ojo enojado" del ícono: borde superior recto que baja hacia la nariz, base redondeada.
-function eyeShape(side) {
-  // side = -1 (ojo izquierdo en pantalla), +1 (derecho). Coordenadas en cm.
-  const s = new THREE.Shape();
-  const inner = { x: side * 0.85, y: 3.15 };
-  const outer = { x: side * 6.0, y: 5.05 };
-  s.moveTo(inner.x, inner.y);
-  s.lineTo(outer.x, outer.y);
-  // curva inferior: de afuera hacia adentro pasando por abajo
-  const cx = side * 3.5, bottom = 0.95;
-  s.bezierCurveTo(side * 6.7, 3.0, side * 5.3, bottom, cx, bottom);
-  s.bezierCurveTo(side * 1.8, bottom, side * 0.5, 2.0, inner.x, inner.y);
-  return s;
-}
-
-// profundidad aproximada de la cara en la zona de los ojos (cm)
-function eyeDepth(x, y) {
-  const ax = Math.abs(x);
-  return 4.95 - 0.075 * Math.pow(Math.max(0, ax - 0.9), 2) - 0.04 * Math.max(0, 3 - y) ** 2;
-}
-
-function wrapToFace(geo, lift) {
-  const p = geo.attributes.position;
-  for (let i = 0; i < p.count; i++) {
-    const x = p.getX(i), y = p.getY(i);
-    p.setZ(i, p.getZ(i) + eyeDepth(x, y) + lift);
+// Las lentes son otra copia de la malla facial: el shader solo deja la forma de "ojo enojado"
+// (definida en coordenadas UV de la cara), así se ajustan a cualquier rostro y quedan separadas.
+export function createLensMaterial(lensMap) {
+  if (lensMap) {
+    lensMap.wrapS = lensMap.wrapT = THREE.RepeatWrapping;
+    lensMap.repeat.set(16, 16);
+    lensMap.colorSpace = THREE.SRGBColorSpace;
   }
-  geo.computeVertexNormals();
-  return geo;
-}
-
-function lensUV(geo, side) {
-  // UV planos para la textura de malla
-  const p = geo.attributes.position;
-  const uv = new Float32Array(p.count * 2);
-  for (let i = 0; i < p.count; i++) {
-    uv[i * 2] = (p.getX(i) * side) / 6;
-    uv[i * 2 + 1] = p.getY(i) / 6;
-  }
-  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xf2f2f2, map: lensMap, roughness: 0.6, metalness: 0,
+    emissive: GLOW_COLOR.clone(), emissiveIntensity: 0, emissiveMap: lensMap,
+    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -8,
+  });
+  mat.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec2 vLensUv;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        transformed += normalize(objectNormal) * 0.75;
+        // aplanar la cuenca del ojo: la lente no se hunde, queda como una pieza rígida
+        // la lente es una pieza rígida curva (como un visor), no sigue cejas ni párpados
+        float ax = max(0.0, abs(transformed.x) - 1.4);
+        float zPlane = 5.55 - 0.09 * ax * ax;
+        transformed.z = max(zPlane, transformed.z + 0.15);
+        vLensUv = uv;`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec2 vLensUv;')
+      .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+        vec2 lp = vLensUv;
+        if (lp.x > 0.5) lp.x = 1.0 - lp.x;
+        vec2 lq = (lp - vec2(0.300, 0.664)) / vec2(0.152, 0.102);
+        float le = dot(lq, lq);
+        vec2 la = vec2(0.452, 0.622), lb = vec2(0.160, 0.746);
+        vec2 ld = normalize(lb - la);
+        float lside = dot(lp - la, vec2(-ld.y, ld.x)); // > 0 debajo de la línea superior
+        if (le > 1.0 || lside < 0.0 || lp.x > 0.436) discard;
+        float lrim = step(0.86, le) + step(lside, 0.008) + step(0.428, lp.x);`)
+      .replace('#include <color_fragment>', '#include <color_fragment>\nif (lrim > 0.0) diffuseColor.rgb = vec3(0.03);')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\nif (lrim > 0.0) totalEmissiveRadiance *= 0.15;');
+  };
+  mat.customProgramCacheKey = () => 'rufian-lens';
+  return mat;
 }
 
 function glowTexture() {
@@ -199,16 +204,14 @@ function streakTexture() {
  * Crea el casco. `lensMap` = textura de malla para las lentes.
  * Devuelve { group, setPower(0..1, time), eyes: [Vector3, Vector3], shellMaterial }
  */
-export function createHelmet({ lensMap = null } = {}) {
+export function createHelmet({ lensMaterial = null } = {}) {
   const group = new THREE.Group();
   group.name = 'CascoRufian';
   const shell = createShellMaterial();
 
   const dome = new THREE.Mesh(buildDomeGeometry(), shell);
   dome.name = 'Craneo';
-  const rim = new THREE.Mesh(buildRimGeometry(), shell);
-  rim.name = 'Reborde';
-  group.add(dome, rim);
+  group.add(dome);
 
   const spikes = new THREE.Group(); spikes.name = 'Puas';
   SPIKES.forEach((s, i) => {
@@ -219,41 +222,9 @@ export function createHelmet({ lensMap = null } = {}) {
   });
   group.add(spikes);
 
-  // Lentes + marco
-  if (lensMap) { lensMap.wrapS = lensMap.wrapT = THREE.RepeatWrapping; lensMap.colorSpace = THREE.SRGBColorSpace; }
-  const eyes = [];
-  const lensMats = [];
-  const lensGroup = new THREE.Group(); lensGroup.name = 'Lentes';
-  for (const side of [-1, 1]) {
-    const shape = eyeShape(side);
-    const lensGeo = new THREE.ShapeGeometry(shape, 24);
-    lensUV(lensGeo, side);
-    wrapToFace(lensGeo, 1.15);
-    const lensMat = new THREE.MeshStandardMaterial({
-      color: 0xf2f2f2, map: lensMap, roughness: 0.55, metalness: 0,
-      emissive: GLOW_COLOR.clone(), emissiveIntensity: 0, emissiveMap: lensMap,
-      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -6,
-    });
-    lensMats.push(lensMat);
-    const lens = new THREE.Mesh(lensGeo, lensMat);
-    lens.name = side < 0 ? 'LenteIzq' : 'LenteDer';
-    lens.renderOrder = 3;
-
-    // marco: la forma ampliada con un hueco del tamaño de la lente
-    const outer = new THREE.Shape(eyeShape(side).getPoints(48).map((p) => {
-      const c = new THREE.Vector2(side * 3.5, 2.9);
-      return p.clone().sub(c).multiplyScalar(1.09).add(c);
-    }));
-    outer.holes.push(new THREE.Path(eyeShape(side).getPoints(48)));
-    const frameGeo = new THREE.ExtrudeGeometry(outer, { depth: 0.45, bevelEnabled: true, bevelThickness: 0.18, bevelSize: 0.12, bevelSegments: 3, curveSegments: 24 });
-    wrapToFace(frameGeo, 0.8);
-    const frame = new THREE.Mesh(frameGeo, shell);
-    frame.name = side < 0 ? 'MarcoIzq' : 'MarcoDer';
-    frame.renderOrder = 2;
-    lensGroup.add(frame, lens);
-    eyes.push(new THREE.Vector3(side * 3.4, 2.75, eyeDepth(side * 3.4, 2.75) + 1.6));
-  }
-  group.add(lensGroup);
+  // posiciones de los ojos (se actualizan cada cuadro con los puntos reales de la cara)
+  const eyes = [new THREE.Vector3(-3.3, 2.8, 5.6), new THREE.Vector3(3.3, 2.8, 5.6)];
+  const lensMats = [lensMaterial];
 
   // Brillo (sprites aditivos) + luces azules
   const glowTex = glowTexture();
@@ -272,10 +243,20 @@ export function createHelmet({ lensMap = null } = {}) {
   });
   group.add(fx);
 
+  function setEyes(l, r) {
+    [l, r].forEach((e, i) => {
+      eyes[i].copy(e);
+      glows[i].position.copy(e);
+      streaks[i].position.copy(e).add(new THREE.Vector3(0, 0, 0.4));
+      lights[i].position.copy(e).add(new THREE.Vector3(0, 0.5, 1.5));
+    });
+  }
+
   function setPower(power, time = 0) {
     const flicker = power > 0.02 ? 0.92 + 0.08 * Math.sin(time * 37) * Math.sin(time * 11.3) : 1;
     const p = power * flicker;
     lensMats.forEach((m) => {
+      if (!m) return;
       m.emissiveIntensity = p * 3.2;
       m.color.setRGB(0.95 - p * 0.55, 0.95 - p * 0.35, 0.95);
     });
@@ -286,7 +267,7 @@ export function createHelmet({ lensMap = null } = {}) {
   setPower(0);
 
   group.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
-  return { group, setPower, eyes, shellMaterial: shell, lensMats };
+  return { group, setPower, setEyes, eyes, shellMaterial: shell, lensMats };
 }
 
 // ------------------------------------------------------------------ máscara facial
@@ -295,15 +276,15 @@ export function createFaceMaskMaterial(shell = createShellMaterial()) {
   const mat = shell.clone();
   mat.side = THREE.FrontSide;
   mat.onBeforeCompile = (shader) => {
-    shader.uniforms.uInflate = { value: 0.55 };
+    shader.uniforms.uInflate = { value: 0.35 };
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nuniform float uInflate;\nvarying vec2 vMaskUv;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed += normalize(objectNormal) * uInflate;\nvMaskUv = uv;');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nvarying vec2 vMaskUv;')
       .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
-        float du = vMaskUv.x - 0.5;
-        float vcut = 0.372 - 1.35 * du * du;
+        float du = abs(vMaskUv.x - 0.5);
+        float vcut = 0.452 - 0.2 * du - 3.1 * pow(max(0.0, du - 0.2), 2.0);
         if (vMaskUv.y < vcut) discard;`);
   };
   mat.customProgramCacheKey = () => 'rufian-face-mask';
@@ -316,9 +297,20 @@ export function createOccluderMaterial() {
 }
 export function createHeadOccluder() {
   const m = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 24), createOccluderMaterial());
-  m.scale.set(7.2, 8.6, 8.2);
+  m.scale.set(6.4, 8.2, 8.0);
   m.position.set(0, 1.6, -3.6);
   m.renderOrder = -1;
   m.name = 'OclusorCabeza';
   return m;
+}
+
+// Centro de cada ojo a partir de los puntos de la malla facial (índices de MediaPipe).
+const EYE_IDS = [[33, 133, 159, 145], [263, 362, 386, 374]];
+export function eyeCentersFrom(getPoint, out = [new THREE.Vector3(), new THREE.Vector3()]) {
+  EYE_IDS.forEach((ids, k) => {
+    out[k].set(0, 0, 0);
+    ids.forEach((i) => { const p = getPoint(i); out[k].x += p[0] / 4; out[k].y += p[1] / 4; out[k].z += p[2] / 4; });
+    out[k].z = Math.max(out[k].z + 1.3, 5.55 - 0.09 * Math.max(0, Math.abs(out[k].x) - 1.4) ** 2 + 0.4);
+  });
+  return out;
 }

@@ -17,7 +17,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { createHelmet, createFaceMaskMaterial, createHeadOccluder } from '../js/models/helmet.js';
+import { createHelmet, createFaceMaskMaterial, createHeadOccluder, createLensMaterial, eyeCentersFrom } from '../js/models/helmet.js';
 import { createDeck, loadDeckTextures } from '../js/models/deck.js';
 
 const q = new URLSearchParams(location.search);
@@ -44,12 +44,18 @@ if (view === 'helmet') {
   geo.setIndex(face.index); geo.computeVertexNormals();
   const skin = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xc89b7b, roughness: 0.7 }));
   const lensMap = await new THREE.TextureLoader().loadAsync('../assets/textures/lente-malla.jpg');
-  helmet = createHelmet({ lensMap });
+  const lensMaterial = createLensMaterial(lensMap);
+  helmet = createHelmet({ lensMaterial });
   const mask = new THREE.Mesh(geo, createFaceMaskMaterial(helmet.shellMaterial));
   mask.name = 'Mascara';
-  pivot.add(skin, mask, helmet.group, createHeadOccluder());
+  const lenses = new THREE.Mesh(geo, lensMaterial); lenses.name = 'Lentes'; lenses.renderOrder = 3;
+  const P = face.pos; const [l, r] = eyeCentersFrom((i) => [P[i * 3], P[i * 3 + 1], P[i * 3 + 2]]);
+  helmet.setEyes(l, r);
+  pivot.add(skin, mask, lenses, helmet.group, createHeadOccluder());
+  if (q.get('nomask')) mask.visible = false;
+  if (q.get('nohelmet')) helmet.group.visible = false;
   pivot.position.set(0, -3, 2);
-  camera.position.set(0, 0, 82);
+  camera.position.set(0, 0, +(q.get('dist') || 82));
 } else {
   const tex = await loadDeckTextures(new THREE.TextureLoader(), renderer, '../');
   deck = createDeck(tex);

@@ -13,6 +13,18 @@ const FILES = {
   blast: 'assets/sfx/repulsor-disparo.mp3',
 };
 
+// medio segundo de silencio (WAV 8 kHz) generado al vuelo
+const SILENT_WAV = (() => {
+  const n = 4000, b = new ArrayBuffer(44 + n), v = new DataView(b);
+  const w = (o, str) => [...str].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  w(36, 'data'); v.setUint32(40, n, true);
+  for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+  return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+})();
+
 class SoundBank {
   constructor() {
     this.ctx = null;
@@ -23,6 +35,17 @@ class SoundBank {
   }
 
   unlock() {
+    // iPhone: por defecto Web Audio respeta el interruptor de silencio y la cámara puede
+    // "interrumpir" el audio. Pedimos sesión de reproducción y reproducimos un audio HTML
+    // silencioso en bucle (truco conocido para que el sonido salga aunque esté en silencio).
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* nada */ }
+    if (!this.keepAlive) {
+      this.keepAlive = new Audio(SILENT_WAV);
+      this.keepAlive.loop = true;
+      this.keepAlive.setAttribute('playsinline', '');
+      this.keepAlive.volume = 0.01;
+    }
+    this.keepAlive.play().catch(() => {});
     if (!this.ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
@@ -50,6 +73,7 @@ class SoundBank {
   // Reproduce un sonido. Devuelve un control { stop(fade), gain } o null.
   play(name, { volume = 1, loop = false, fadeIn = 0, rate = 1 } = {}) {
     if (!this.ctx || this.muted) return null;
+    if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
     const buffer = this.buffers[name];
     if (!buffer) { this.loading?.then(() => {}); return null; }
     const src = this.ctx.createBufferSource();
@@ -86,3 +110,9 @@ class SoundBank {
 }
 
 export const SFX = new SoundBank();
+
+// Cualquier toque reactiva el audio si el navegador lo suspendió (p. ej. al abrir la cámara).
+['touchend', 'pointerup', 'click'].forEach((ev) => document.addEventListener(ev, () => {
+  if (SFX.ctx && SFX.ctx.state !== 'running') SFX.ctx.resume().catch(() => {});
+  SFX.keepAlive?.paused && SFX.keepAlive.play().catch(() => {});
+}, { passive: true }));

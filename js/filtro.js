@@ -3,7 +3,7 @@
 // Gesto 2: con la máscara encendida, abrir la boca → disparo de energía.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { createHelmet, createFaceMaskMaterial, createOccluderMaterial, createHeadOccluder, GLOW_COLOR } from './models/helmet.js';
+import { createHelmet, createFaceMaskMaterial, createOccluderMaterial, createHeadOccluder, createLensMaterial, eyeCentersFrom, GLOW_COLOR } from './models/helmet.js';
 import { SFX } from './sfx.js';
 import { $, toast, setProgress } from './ui.js';
 
@@ -11,8 +11,9 @@ const params = new URLSearchParams(location.search);
 const SIM = params.get('sim'); // modo de prueba sin gestos reales
 
 let mindar = null, started = false;
-let helmet = null, maskFace = null, occFace = null;
+let helmet = null, maskFace = null, occFace = null, lensFace = null;
 const timer = new THREE.Timer();
+const eyeTmp = [new THREE.Vector3(), new THREE.Vector3()];
 
 // ------------------------------------------------------------- estado del gesto
 const G = {
@@ -146,7 +147,7 @@ function buildFX(parent) {
     const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.2, 1, 24, 1, true), new THREE.MeshBasicMaterial({ color: GLOW_COLOR, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     beam.rotation.x = Math.PI / 2; beam.renderOrder = 13;
     parent.add(ring, beam);
-    beams.push({ ring, beam, origin: e.clone() });
+    beams.push({ ring, beam, origin: e }); // referencia viva: sigue al ojo
   }
 }
 
@@ -267,7 +268,12 @@ function frame() {
     if (!has) { onLowerIfNeeded(); setStatus('Busca tu cara', false); }
     else setStatus(G.phase === 'on' ? 'Máscara encendida · abre la boca' : 'Sube las cejas para encender', true);
   }
-  if (has) maskFace.geometry.computeVertexNormals();
+  if (has) {
+    maskFace.geometry.computeVertexNormals();
+    lensFace.geometry.computeVertexNormals();
+    const e = mindar.getLatestEstimate();
+    if (e?.metricLandmarks) helmet.setEyes(...eyeCentersFrom((i) => e.metricLandmarks[i], eyeTmp));
+  }
   updateGesture(dt);
   helmet.setPower(G.power, G.t);
   updateFX(dt);
@@ -298,7 +304,8 @@ async function start() {
     const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(0.4, 1, 1.2); scene.add(key);
 
     const lensMap = await new THREE.TextureLoader().loadAsync('assets/textures/lente-malla.jpg');
-    helmet = createHelmet({ lensMap });
+    const lensMaterial = createLensMaterial(lensMap);
+    helmet = createHelmet({ lensMaterial });
 
     // 1) oclusor con la forma exacta de la cara
     occFace = mindar.addFaceMesh();
@@ -311,6 +318,11 @@ async function start() {
     maskFace.add(helmet.group);
     maskFace.add(createHeadOccluder());
     scene.add(maskFace);
+    // 3) lentes: otra copia de la malla, recortada con la forma de ojo de la marca
+    lensFace = mindar.addFaceMesh();
+    lensFace.material = lensMaterial;
+    lensFace.renderOrder = 3;
+    scene.add(lensFace);
     buildFX(maskFace);
 
     setProgress(60, 'Abriendo cámara…');
