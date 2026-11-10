@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0b0b">
+  <title>RUFIÁN — Filtro: ponte el casco</title>
+  <link rel="icon" href="assets/brand/icono-negro.png">
+  <link rel="stylesheet" href="css/rufian.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./js/three.compat.js",
+      "three/addons/": "./js/vendor/addons/",
+      "mindar-face-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-three.prod.js"
+    }
+  }
+  </script>
+</head>
+<body class="xp-page">
+  <div id="face" class="stage" aria-label="Cámara con filtro facial"></div>
+  <div id="vignette" class="glow-vignette" aria-hidden="true"></div>
+  <div id="flash" class="flash" aria-hidden="true"></div>
+
+  <section id="intro" class="intro">
+    <div class="checker checker-strip run" aria-hidden="true"></div>
+    <div class="intro-body">
+      <img src="assets/brand/logo-blanco.png" alt="Rufián Magazine" style="width:150px">
+      <span class="label" style="color:#9a9a9a">02 / Filtro facial · Seguimiento de rostro</span>
+      <h1 class="display">Ponte<br>el casco</h1>
+      <ul>
+        <li><b>01</b>Permite la cámara frontal y mira de frente, con la cara bien iluminada.</li>
+        <li><b>02</b><span><b style="font:inherit;font-weight:600">Sube las cejas</b>: los ojos de la máscara se encienden en azul y cargan energía.</span></li>
+        <li><b>03</b><span>Con la máscara encendida, <b style="font:inherit;font-weight:600">abre la boca</b> para disparar. Toca el botón central para tomar una foto.</span></li>
+      </ul>
+      <button id="start" class="big-btn" type="button"><span id="start-label">Activar cámara</span><span aria-hidden="true">↗</span></button>
+      <div id="progress" class="progress" aria-hidden="true"><i></i></div>
+      <div id="error" class="error-box" role="alert"></div>
+      <p class="hint">Sube el volumen: el filtro tiene efectos de sonido. · <a class="text-link" href="index.html">Volver al inicio</a></p>
+    </div>
+  </section>
+
+  <header class="xp-top">
+    <a class="round-btn" href="index.html" aria-label="Volver al inicio">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <img class="logo" src="assets/brand/logo-blanco.png" alt="Rufián Magazine">
+    <button id="mute" class="round-btn" type="button" aria-label="Silenciar sonido" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16 9a4 4 0 010 6M18.5 6.5a7.5 7.5 0 010 11"/></svg>
+    </button>
+  </header>
+
+  <div id="status" class="status-chip" hidden><span class="dot"></span><span id="status-text">Busca tu cara</span></div>
+
+  <div class="filter-ui" id="filter-ui" hidden>
+    <div class="gesture-hints">
+      <span id="g-brows" class="gesture">↑ Sube las cejas · Encender</span>
+      <span id="g-mouth" class="gesture locked">◯ Abre la boca · Disparar</span>
+    </div>
+    <div id="meter" class="power-meter" aria-hidden="true"><i></i></div>
+    <div class="capture-row">
+      <span></span>
+      <button id="shutter" class="shutter" type="button" aria-label="Tomar foto"><span><img src="assets/brand/icono-negro.png" alt=""></span></button>
+      <span></span>
+    </div>
+  </div>
+
+  <div id="photo" class="photo-sheet" hidden>
+    <img id="photo-img" alt="Tu foto con el casco Rufián">
+    <div class="actions">
+      <button id="photo-close" class="big-btn ghost" type="button">Otra</button>
+      <a id="photo-save" class="big-btn" download="rufian-casco.jpg" href="#">Guardar</a>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="js/filtro.js"></script>
+</body>
+</html>

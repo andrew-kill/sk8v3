@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Compilar marcador MindAR</title>
+<style>body{font:15px system-ui;background:#111;color:#fff;padding:24px;max-width:640px;margin:auto}button{padding:12px 18px;font-weight:700}</style></head>
+<body>
+<h1>Compilar marcador (.mind)</h1>
+<p>Herramienta interna: genera <code>assets/marker/targets.mind</code> a partir de <code>assets/marker/target.jpg</code>. Úsala solo si cambias la imagen del afiche y luego reemplaza el archivo en el repositorio.</p>
+<button id="go">Compilar y descargar</button>
+<p id="out"></p>
+<script type="module">
+import { Compiler } from 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js';
+const out = document.getElementById('out');
+async function compile() {
+  const img = new Image(); img.src = '../assets/marker/target.jpg'; await img.decode();
+  const c = new Compiler();
+  await c.compileImageTargets([img], p => out.textContent = 'Compilando… ' + p.toFixed(0) + '%');
+  const buf = await c.exportData();
+  window.__mind = Array.from(new Uint8Array(buf));
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([buf])); a.download = 'targets.mind'; a.click();
+  out.textContent = 'Listo: ' + buf.byteLength + ' bytes';
+}
+document.getElementById('go').onclick = compile;
+if (location.search.includes('auto')) compile();
+</script>
+</body></html>

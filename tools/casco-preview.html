@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rufián — Vista previa del casco y la tabla (Three.js)</title>
+<style>
+  html,body{margin:0;height:100%;background:#e9e9e6;font:13px system-ui;overflow:hidden}
+  #ui{position:fixed;left:12px;top:12px;display:flex;flex-wrap:wrap;gap:6px;z-index:2}
+  #ui button,#ui label{padding:8px 10px;background:#000;color:#fff;border:0;font-weight:700;letter-spacing:.04em}
+  #ui label{background:#fff;color:#000;border:2px solid #000}
+</style>
+<script type="importmap">{"imports":{"three":"../js/three.compat.js","three/addons/":"../js/vendor/addons/"}}</script>
+</head><body>
+<div id="ui">
+  <button id="exp-helmet">Exportar casco (.json para el editor de Three.js)</button>
+  <button id="exp-deck">Exportar tabla (.json)</button>
+  <label><input id="power" type="range" min="0" max="1" step="0.01" value="0"> Encender</label>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { createHelmet, createFaceMaskMaterial, createHeadOccluder } from '../js/models/helmet.js';
+import { createDeck, loadDeckTextures } from '../js/models/deck.js';
+
+const q = new URLSearchParams(location.search);
+const view = q.get('view') || 'helmet';
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.NeutralToneMapping;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(q.get('bg') || '#e9e9e6');
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.0));
+const key = new THREE.DirectionalLight(0xffffff, 2); key.position.set(20, 40, 60); scene.add(key);
+const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.1, 1000);
+const pivot = new THREE.Group(); scene.add(pivot);
+let helmet = null, deck = null;
+
+if (view === 'helmet') {
+  const face = await (await fetch('rostro-canonico.json')).json();
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(face.pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(face.uv, 2));
+  geo.setIndex(face.index); geo.computeVertexNormals();
+  const skin = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xc89b7b, roughness: 0.7 }));
+  const lensMap = await new THREE.TextureLoader().loadAsync('../assets/textures/lente-malla.jpg');
+  helmet = createHelmet({ lensMap });
+  const mask = new THREE.Mesh(geo, createFaceMaskMaterial(helmet.shellMaterial));
+  mask.name = 'Mascara';
+  pivot.add(skin, mask, helmet.group, createHeadOccluder());
+  pivot.position.set(0, -3, 2);
+  camera.position.set(0, 0, 82);
+} else {
+  const tex = await loadDeckTextures(new THREE.TextureLoader(), renderer, '../');
+  deck = createDeck(tex);
+  deck.setGraphic(+(q.get('g') || 0));
+  pivot.add(deck.group);
+  camera.position.set(0, 0, 2.6);
+}
+if (q.get('clean')) document.getElementById('ui').style.display = 'none';
+const yaw = +(q.get('yaw') || 0), pitch = +(q.get('pitch') || 0);
+pivot.rotation.set(THREE.MathUtils.degToRad(pitch), THREE.MathUtils.degToRad(yaw), 0, 'YXZ');
+if (q.get('roll')) pivot.rotation.z = THREE.MathUtils.degToRad(+q.get('roll'));
+const powerInput = document.getElementById('power');
+powerInput.value = q.get('power') || 0;
+let drag = null;
+renderer.domElement.addEventListener('pointerdown', (e) => drag = { x: e.clientX, y: e.clientY, ry: pivot.rotation.y, rx: pivot.rotation.x });
+addEventListener('pointerup', () => drag = null);
+addEventListener('pointermove', (e) => { if (!drag) return; pivot.rotation.y = drag.ry + (e.clientX - drag.x) * 0.01; pivot.rotation.x = drag.rx + (e.clientY - drag.y) * 0.01; });
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+renderer.setAnimationLoop((t) => {
+  if (helmet) helmet.setPower(+powerInput.value, t / 1000);
+  renderer.render(scene, camera);
+});
+function download(obj, name) {
+  const json = JSON.stringify(obj.toJSON());
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' })); a.download = name; a.click();
+}
+document.getElementById('exp-helmet').onclick = () => helmet ? download(helmet.group, 'casco-rufian.json') : alert('Abre ?view=helmet');
+document.getElementById('exp-deck').onclick = () => deck ? download(deck.group, 'tabla-rufian.json') : alert('Abre ?view=deck');
+window.__ready = true;
+window.__export = () => JSON.stringify((helmet ? helmet.group : deck.group).toJSON());
+</script>
+</body></html>

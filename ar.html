@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0b0b">
+  <title>RUFIÁN — Escanea la tabla (AR)</title>
+  <link rel="icon" href="assets/brand/icono-negro.png">
+  <link rel="stylesheet" href="css/rufian.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./js/three.compat.js",
+      "three/addons/": "./js/vendor/addons/",
+      "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+    }
+  }
+  </script>
+</head>
+<body class="xp-page">
+  <div id="ar" class="stage" aria-label="Vista de realidad aumentada"></div>
+
+  <!-- Pantalla previa: pide la cámara con un toque (requisito de los navegadores para cámara y sonido) -->
+  <section id="intro" class="intro">
+    <div class="checker checker-strip run" aria-hidden="true"></div>
+    <div class="intro-body">
+      <img src="assets/brand/logo-blanco.png" alt="Rufián Magazine" style="width:150px">
+      <span class="label" style="color:#9a9a9a">01 / Realidad aumentada · Seguimiento de imagen</span>
+      <h1 class="display">Escanea<br>la tabla</h1>
+      <ul>
+        <li><b>01</b>Permite el acceso a la cámara trasera.</li>
+        <li><b>02</b>Encuadra la ilustración completa del afiche o la tarjeta Rufián, con buena luz.</li>
+        <li><b>03</b>Toca los botones 01, 02 y 03 para abrir la información. Toca la tabla para cambiar la gráfica y el video para activar el sonido.</li>
+      </ul>
+      <button id="start" class="big-btn" type="button"><span id="start-label">Activar cámara</span><span aria-hidden="true">↗</span></button>
+      <div id="progress" class="progress" aria-hidden="true"><i></i></div>
+      <div id="error" class="error-box" role="alert"></div>
+      <p class="hint">¿No tienes el afiche a mano? <a class="text-link" href="assets/marker/target.jpg" target="_blank" rel="noopener">Abre el marcador</a> en otra pantalla y apúntale. · <a class="text-link" href="index.html">Volver al inicio</a></p>
+    </div>
+  </section>
+
+  <header class="xp-top">
+    <a class="round-btn" href="index.html" aria-label="Volver al inicio">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <img class="logo" src="assets/brand/logo-blanco.png" alt="Rufián Magazine">
+    <button id="mute" class="round-btn" type="button" aria-label="Silenciar sonido" aria-pressed="false">
+      <svg id="mute-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16 9a4 4 0 010 6M18.5 6.5a7.5 7.5 0 010 11"/></svg>
+    </button>
+  </header>
+
+  <div id="status" class="status-chip" hidden><span class="dot"></span><span id="status-text">Busca el afiche Rufián</span></div>
+
+  <!-- Tres botones interactivos (también están en 3D sobre el marcador) -->
+  <nav class="ar-dock" id="dock" hidden aria-label="Información del producto">
+    <div class="row">
+      <button class="info-btn" data-dialog="concepto" type="button"><small>01</small>Concepto</button>
+      <button class="info-btn" data-dialog="tabla" type="button"><small>02</small>La tabla</button>
+      <button class="info-btn" data-dialog="cultura" type="button"><small>03</small>Cultura</button>
+    </div>
+    <div class="dock-actions">
+      <button id="next-graphic" class="pill-btn" type="button">↻ Cambiar gráfica</button>
+      <button id="toggle-video" class="pill-btn dark" type="button">▶ Sonido del video</button>
+    </div>
+  </nav>
+
+  <div id="dialog" class="dialog-backdrop" hidden>
+    <section class="info-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+      <div class="checker checker-strip" aria-hidden="true"></div>
+      <button id="dialog-close" class="dialog-close" type="button" aria-label="Cerrar">×</button>
+      <div class="dialog-inner">
+        <p id="dialog-kicker" class="label"></p>
+        <h2 id="dialog-title" class="display"></h2>
+        <div id="dialog-body"></div>
+      </div>
+      <div class="dialog-foot label"><span id="dialog-count">01 / 03</span><span>Rufián Magazine ®</span></div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="js/ar.js"></script>
+</body>
+</html>
