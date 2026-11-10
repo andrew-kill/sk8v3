@@ -1,8 +1,0 @@
-# Sistema y editores
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
-# Dependencias locales si se añaden herramientas después
-node_modules/
